@@ -1,8 +1,5 @@
 package com.movtery.zalithlauncher.bridge
 
-import com.sun.jna.Library
-import com.sun.jna.Native
-
 /**
  * Rust JNI Bridge for ZalithLauncher
  *
