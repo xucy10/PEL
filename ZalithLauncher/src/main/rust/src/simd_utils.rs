@@ -4,7 +4,7 @@
 //! Uses SSE2 on x86_64 and NEON on aarch64 when available.
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_cvtsi128_si32};
+use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128};
 
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::{uint8x16_t, vld1q_u8, vst1q_u8};

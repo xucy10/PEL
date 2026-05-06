@@ -1,6 +1,5 @@
 //! Utility functions
 
-use libc::size_t;
 
 /// Safe memory copy for frame buffer
 /// Returns Ok(()) on success, Err(errno) on failure

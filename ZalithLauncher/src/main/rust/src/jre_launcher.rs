@@ -4,8 +4,8 @@
 
 use jni::JNIEnv;
 use jni::objects::{JByteArray, JClass};
-use jni::sys::{jint, jbyteArray, jbyte};
-use libc::{c_char, c_int, pipe, write, close, SIGABRT};
+use jni::sys::{jint, jbyteArray};
+use libc::{c_char, c_int, pipe, close, SIGABRT};
 use std::ptr;
 use std::ffi::CStr;
 
@@ -34,7 +34,7 @@ fn initialize_abort_waiter() -> c_int {
 /// Launch JVM using JLI_Launch
 #[no_mangle]
 pub unsafe extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustLaunchJVM(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _class: JClass,
     args_array: jbyteArray,
 ) -> jint {

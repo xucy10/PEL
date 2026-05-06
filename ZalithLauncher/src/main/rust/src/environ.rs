@@ -1,10 +1,8 @@
 //! Environment variable handling
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JString};
-use jni::sys::{jint, jstring};
-use std::ffi::CString;
-use std::ptr;
+use jni::objects::JClass;
+use jni::sys::jint;
 
 /// Hook for Java_exec_hooks
 #[no_mangle]

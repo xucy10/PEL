@@ -1,7 +1,7 @@
 //! Stdio_is stub
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JString};
+use jni::objects::JClass;
 use jni::sys::jint;
 
 #[no_mangle]
