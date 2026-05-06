@@ -1,7 +1,7 @@
 * PEL
 
   
-**PEL** 是以ZalithLauncher2为底层做为修改、面向 **Android 设备** 的 [Minecraft: Java Edition](https://www.minecraft.net/) 启动器。项目使用 [ZalithLauncher2]作为启动核心（而[ZalithLauncher2]以[PojavLauncher]作为启动核心：(https://github.com/PojavLauncherTeam/PojavLauncher/tree/v3_openjdk/app_pojavlauncher/src/main/jni)采用 **Jetpack Compose** 与 **Material Design 3** 构建现代化 UI 体验。  
+**PEL** 是以ZalithLauncher2为底层做为修改、面向 **Android 设备** 的 [Minecraft: Java Edition](https://www.minecraft.net/) 启动器。项目使用 [ZalithLauncher2]作为启动核心（而[ZalithLauncher2]以[PojavLauncher]作为启动核心：(https://github.com/PojavLauncherTeam/PojavLauncher/tree/v3_openjdk/app_pojavlauncher/src/main/jni) 采用 **Jetpack Compose** 与 **Material Design 3** 构建现代化 UI 体验。  
 
 
 ## 📦 构建方式（开发者）
@@ -24,7 +24,7 @@ git clone git@github.com:xucy/PEL.git
 ```
 
 
-
+受GPL-3.0协议，不在此移除ZalithLauncher2原话
 
 ## 📜 License
 
