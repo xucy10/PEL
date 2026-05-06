@@ -7,7 +7,7 @@
 use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_cvtsi128_si32};
 
 #[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::{float32x4_t, vld1q_f32, vst1q_f32};
+use std::arch::aarch64::{uint8x16_t, vld1q_u8, vst1q_u8};
 
 /// Get optimal SIMD copy size (16 bytes for SSE2, 16 bytes for NEON)
 #[inline(always)]
@@ -58,9 +58,7 @@ pub unsafe fn simd_copy_frame_buffer(src: *const u8, dst: *mut u8, len: usize) -
     // NEON loop - process 16 bytes at a time
     let simd_end = (len - i) / 16 * 16 + i;
     while i < simd_end {
-        let src_ptr = src.add(i) as *const float32x4_t;
-        let dst_ptr = dst.add(i) as *mut float32x4_t;
-        vst1q_f32(dst_ptr, vld1q_f32(src_ptr));
+        vst1q_u8(dst.add(i), vld1q_u8(src.add(i)));
         i += 16;
     }
 

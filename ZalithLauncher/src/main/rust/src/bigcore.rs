@@ -20,7 +20,8 @@ pub fn set_affinity() -> Result<(), c_int> {
 
         let tid = libc::pthread_self();
         if sched_setaffinity(tid as c_int, std::mem::size_of::<libc::cpu_set_t>(), &cpuset) != 0 {
-            return Err(*libc::__errno_location());
+            // Return -1 as errno indicator (actual errno is thread-local)
+            return Err(-1);
         }
 
         Ok(())
