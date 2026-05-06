@@ -44,7 +44,6 @@ import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.gif.GifDecoder
 import coil3.request.crossfade
-import coil3.svg.SvgDecoder
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.bridge.CursorShape
 import com.movtery.zalithlauncher.bridge.ZLBridgeStates
@@ -324,10 +323,7 @@ fun MousePointer(
     val context = LocalContext.current
     val loader = remember(triggerRefresh, crossfade, mouseSize) {
         ImageLoader.Builder(context)
-            .components {
-                add(GifDecoder.Factory())
-                add(SvgDecoder.Factory())
-            }
+            .components { add(GifDecoder.Factory()) }
             .crossfade(crossfade)
             .build()
     }

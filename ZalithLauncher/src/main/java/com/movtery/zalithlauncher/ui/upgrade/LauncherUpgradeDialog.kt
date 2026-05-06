@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -41,9 +39,12 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
+import com.mikepenz.markdown.compose.LazyMarkdownSuccess
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.model.rememberMarkdownState
 import com.movtery.zalithlauncher.R
-import com.movtery.zalithlauncher.ui.components.MarkdownView
-import com.movtery.zalithlauncher.ui.components.defaultRichTextStyle
+import com.movtery.zalithlauncher.ui.components.defaultMDTypography
 import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.upgrade.RemoteData
@@ -102,6 +103,9 @@ fun UpgradeDialog(
                 )
                 val markdownBody = "$versionStr  \n$dateStr  \n\n${body.markdown}"
 
+                val state = rememberMarkdownState(
+                    content = markdownBody,
+                )
                 CompositionLocalProvider(
                     LocalUriHandler provides object : UriHandler {
                         override fun openUri(uri: String) {
@@ -109,14 +113,21 @@ fun UpgradeDialog(
                         }
                     }
                 ) {
-                    MarkdownView(
+                    Markdown(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
-                            .padding(horizontal = 20.dp)
-                            .verticalScroll(rememberScrollState()),
-                        content = markdownBody,
-                        richTextStyle = defaultRichTextStyle(),
+                            .padding(horizontal = 20.dp),
+                        markdownState = state,
+                        typography = defaultMDTypography(),
+                        imageTransformer = Coil3ImageTransformerImpl,
+                        success = { state, components, modifier ->
+                            LazyMarkdownSuccess(
+                                modifier = modifier,
+                                state = state,
+                                components = components,
+                            )
+                        },
                     )
                 }
 

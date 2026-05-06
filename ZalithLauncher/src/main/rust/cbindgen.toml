@@ -1,0 +1,20 @@
+language = "C"
+style = "both"
+pragma_once = true
+include_guard = "ZALITH_RUST_FFI_H"
+cpp_compat = true
+sys_includes = ["jni.h"]
+
+[export]
+prefix = "rust_"
+
+[export.rename]
+"BigCoreError" = "RustBigCoreError"
+"LauncherError" = "RustLauncherError"
+
+[enum]
+rename_variants = "ScreamingSnakeCase"
+
+[parse]
+parse_deps = true
+extra_bindings = ["utils"]

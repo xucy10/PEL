@@ -225,6 +225,58 @@ tasks.named("preBuild") {
     dependsOn("generateInfoDistributor")
 }
 
+// Rust 库编译任务 - 自动编译并复制到 jniLibs
+val rustDir = file("src/main/rust")
+val jniLibsDir = file("src/main/jniLibs")
+
+tasks.register("buildRust") {
+    group = "rust"
+    description = "Build Rust JNI library and copy to jniLibs"
+
+    doLast {
+        val cargo = "${System.getenv("HOME") ?: "/root"}/.cargo/bin/cargo"
+        val ndkHome = System.getenv("ANDROID_NDK_HOME") ?: "/root/android-sdk/ndk/25.2.9519653"
+
+        // cargo ndk 使用 Android ABI 名称
+        val targets = listOf(
+            "arm64-v8a" to "arm64-v8a",
+            "armeabi-v7a" to "armeabi-v7a",
+            "x86" to "x86",
+            "x86_64" to "x86_64"
+        )
+
+        targets.forEach { (abi, _) ->
+            println("Building Rust for $abi...")
+
+            // 构建 Rust 库
+            exec {
+                commandLine(cargo, "ndk", "--target", abi, "--platform", "26", "--", "build", "--release")
+                environment("ANDROID_NDK_HOME", ndkHome)
+                workingDir(rustDir)
+            }
+
+            // 复制到 jniLibs
+            val rustTarget = when (abi) {
+                "arm64-v8a" -> "aarch64-linux-android"
+                "armeabi-v7a" -> "arm-linux-androideabi"
+                "x86" -> "i686-linux-android"
+                "x86_64" -> "x86_64-linux-android"
+                else -> return@forEach
+            }
+            val outputLib = file("${rustDir}/target/${rustTarget}/release/libzalith_jni.so")
+            if (outputLib.exists()) {
+                val targetDir = file("$jniLibsDir/$abi")
+                targetDir.mkdirs()
+                copy {
+                    from(outputLib)
+                    into(targetDir)
+                }
+                println("Copied libzalith_jni.so to $abi/")
+            }
+        }
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -248,17 +300,17 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
-    implementation(libs.coil.svg)
     implementation(libs.coil.network.ktor3)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.material)
     implementation(libs.material.color.utilities)
     implementation(libs.reorderable)
-    implementation(libs.richtext.commonmark)
-    implementation(libs.richtext.ui)
-    implementation(libs.richtext.ui.material3)
-    implementation(platform(libs.editor.bom))
-    implementation(libs.editor)
+    implementation(libs.multiplatform.markdown.renderer)
+    implementation(libs.multiplatform.markdown.renderer.m3)
+    implementation(libs.multiplatform.markdown.renderer.coil3)
+    implementation(libs.multiplatform.markdown.renderer.android)
+    implementation(libs.halilibo.richtext.commonmark)
+    implementation(libs.halilibo.richtext.ui)
     //Project
     implementation(project(":LayerController"))
     implementation(project(":ColorPicker"))

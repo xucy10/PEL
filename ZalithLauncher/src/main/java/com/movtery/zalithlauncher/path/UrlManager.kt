@@ -28,6 +28,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -90,9 +91,20 @@ fun createOkHttpClient(): OkHttpClient = createOkHttpClientBuilder().build()
 
 /**
  * 创建一个OkHttpClient，可自定义一些内容
+ * @param maxThreads 最大并发线程数，默认64，用于多文件并行下载
+ * @param maxConnections 最大连接池数，默认100
  */
-fun createOkHttpClientBuilder(action: (OkHttpClient.Builder) -> Unit = { }): OkHttpClient.Builder {
+fun createOkHttpClientBuilder(
+    maxThreads: Int = 64,
+    maxConnections: Int = 100,
+    action: (OkHttpClient.Builder) -> Unit = { }
+): OkHttpClient.Builder {
     return OkHttpClient.Builder()
         .callTimeout(TIME_OUT, TimeUnit.MILLISECONDS)
+        .connectionPool(ConnectionPool(maxConnections, 5, TimeUnit.MINUTES))
+        .dispatcher(okhttp3.Dispatcher().apply {
+            maxRequests = maxThreads
+            maxRequestsPerHost = maxThreads
+        })
         .apply(action)
 }

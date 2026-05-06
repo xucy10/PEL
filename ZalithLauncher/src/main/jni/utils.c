@@ -15,7 +15,15 @@ long shared_awt_surface;
 
 char** convert_to_char_array(JNIEnv *env, jobjectArray jstringArray) {
 	int num_rows = (*env)->GetArrayLength(env, jstringArray);
-	char **cArray = (char **) malloc(num_rows * sizeof(char*));
+	
+	// 溢出保护：检查 size_t 乘法
+	size_t row_ptr_size = (size_t)num_rows * sizeof(char*);
+	if (num_rows > 0 && row_ptr_size / sizeof(char*) != (size_t)num_rows) {
+		return NULL; // 分配过大，溢出
+	}
+	
+	char **cArray = (char **) malloc(row_ptr_size);
+	if (cArray == NULL) return NULL;
 	jstring row;
 	
 	for (int i = 0; i < num_rows; i++) {

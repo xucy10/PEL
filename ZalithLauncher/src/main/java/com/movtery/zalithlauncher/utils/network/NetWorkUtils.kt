@@ -48,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import okhttp3.Call
+import okhttp3.OkHttpClient
 import org.apache.commons.io.FileUtils
 import java.io.BufferedOutputStream
 import java.io.File
@@ -55,9 +56,7 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InterruptedIOException
-import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
-import java.net.URL
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -83,10 +82,10 @@ fun isUsingMobileData(context: Context): Boolean {
 }
 
 /**
- * 同步下载文件到本地
+ * 使用 OkHttp 优化的同步下载文件到本地
  * @param url 要下载的文件URL
  * @param outputFile 要保存的目标文件
- * @param bufferSize 缓冲区大小
+ * * @param bufferSize 缓冲区大小
  * @param sha1 文件SHA1验证值
  * @param sizeCallback 正在下载的大小回调
  */
@@ -103,31 +102,28 @@ fun downloadFileWithHttp(
 
     while (true) {
         attempt++
-        //本次尝试中已回调的大小
         var attemptReportedBytes = 0L
 
         try {
             outputFile.ensureParentDirectory()
 
-            val conn = URL(url).openConnection() as HttpURLConnection
+            val client: OkHttpClient = createOkHttpClient()
+            val request = createRequestBuilder(url)
+                .header("User-Agent", "Mozilla/5.0/$URL_USER_AGENT")
+                .build()
 
-            conn.apply {
-                readTimeout = TIME_OUT.toInt()
-                connectTimeout = TIME_OUT.toInt()
-                useCaches = true
-                setRequestProperty("User-Agent", "Mozilla/5.0/$URL_USER_AGENT")
+            val response = client.newCall(request).execute()
+
+            if (!response.isSuccessful) {
+                response.close()
+                if (response.code == 404) throw FileNotFoundException("HTTP ${response.code} - ${response.message}")
+                throw IOException("HTTP ${response.code} - ${response.message}")
             }
 
-            conn.connect()
-            if (conn.responseCode !in 200..299) {
-                if (conn.responseCode == 404) throw FileNotFoundException("HTTP ${conn.responseCode} - ${conn.responseMessage}")
-                throw IOException("HTTP ${conn.responseCode} - ${conn.responseMessage}")
-            }
-
-            val contentLength = conn.contentLengthLong
+            val contentLength = response.body.contentLength()
             val buffer = ByteArray(bufferSize)
 
-            conn.inputStream.use { inputStream ->
+            response.body.byteStream().use { inputStream ->
                 BufferedOutputStream(FileOutputStream(outputFile)).use { fos ->
                     var totalBytesRead = 0L
                     var bytesRead: Int
@@ -145,7 +141,7 @@ fun downloadFileWithHttp(
                         throw IOException("Download incomplete. Expected $contentLength bytes, received $totalBytesRead bytes.")
                     }
                 }
-            }
+            } ?: throw IOException("Response body is null")
 
             sha1?.let {
                 if (!compareSHA1(outputFile, it)) {

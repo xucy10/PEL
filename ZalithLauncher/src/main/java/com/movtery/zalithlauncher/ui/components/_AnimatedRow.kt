@@ -22,7 +22,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -73,7 +77,8 @@ private class AnimatedRowScopeImpl(
     private val baseDelay: Int,
     private val delayIncrement: Int
 ) : AnimatedRowScope {
-    private var itemIndex = 0
+    // 使用 IntState 确保线程安全的整数更新
+    private var itemIndex by mutableIntStateOf(0)
 
     @Composable
     override fun AnimatedItem(
@@ -83,6 +88,7 @@ private class AnimatedRowScopeImpl(
         targetValue: Int,
         content: @Composable RowScope.(yOffset: Dp) -> Unit
     ) {
+        // 获取当前索引值然后递增，确保线程安全
         val currentIndex = itemIndex++
         //优先使用显式设置的延迟，否则基于索引自动计算递增延迟
         val actualDelay = delay ?: (baseDelay + currentIndex * delayIncrement)

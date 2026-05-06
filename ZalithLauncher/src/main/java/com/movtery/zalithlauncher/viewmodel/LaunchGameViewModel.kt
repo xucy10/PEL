@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.movtery.zalithlauncher.game.launch.LaunchGame
 import com.movtery.zalithlauncher.game.version.installed.Version
-import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.ui.screens.content.elements.LaunchGameOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickPlay
 
@@ -38,8 +37,9 @@ class LaunchGameViewModel : ViewModel() {
     /**
      * 尝试启动游戏
      */
-    fun tryLaunch() {
-        val version = VersionsManager.currentVersion.value
+    fun tryLaunch(
+        version: Version?
+    ) {
         if (launchGameOperation == LaunchGameOperation.None) {
             launchGameOperation = LaunchGameOperation.TryLaunch(version)
         }

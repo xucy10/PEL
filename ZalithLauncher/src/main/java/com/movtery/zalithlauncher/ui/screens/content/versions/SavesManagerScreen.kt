@@ -82,13 +82,13 @@ import coil3.compose.AsyncImage
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.context.COPY_LABEL_SAVE_SEED
 import com.movtery.zalithlauncher.coroutine.TaskSystem
+import com.movtery.zalithlauncher.game.version.saves.unpackSaveZip
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.installed.VersionInfo
 import com.movtery.zalithlauncher.game.version.saves.SaveData
 import com.movtery.zalithlauncher.game.version.saves.isCompatible
 import com.movtery.zalithlauncher.game.version.saves.parseLevelDatFile
-import com.movtery.zalithlauncher.game.version.saves.unpackSaveZip
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.ContentCheckBox
@@ -122,6 +122,7 @@ import com.movtery.zalithlauncher.utils.animation.swapAnimateDpAsState
 import com.movtery.zalithlauncher.utils.copyText
 import com.movtery.zalithlauncher.utils.formatDate
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
+import com.movtery.zalithlauncher.viewmodel.LaunchGameViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -250,8 +251,8 @@ private fun rememberSavesManageViewModel(
 fun SavesManagerScreen(
     mainScreenKey: TitledNavKey?,
     versionsScreenKey: TitledNavKey?,
+    launchGameViewModel: LaunchGameViewModel,
     version: Version,
-    onQuickPlay: (Version, String) -> Unit,
     backToMainScreen: () -> Unit,
     swapToDownload: () -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
@@ -312,7 +313,10 @@ fun SavesManagerScreen(
                         savesDir = savesDir,
                         updateOperation = { savesOperation = it },
                         quickPlay = { saveName ->
-                            onQuickPlay(version, saveName)
+                            launchGameViewModel.quickPlaySave(
+                                version = version,
+                                saveName = saveName
+                            )
                         },
                         renameSave = { saveData, newName ->
                             runProgress {

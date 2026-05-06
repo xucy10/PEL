@@ -104,20 +104,21 @@ public class MappedObjectTransformer {
 		className_to_subtype = new HashMap<String, MappedSubtypeInfo>();
 
 		{
-			// HACK: required for mapped.view++
-			//
-			// because the compiler generates:
-			// => GETFIELD MappedObject.view
-			// => ICONST_1
-			// => IADD
-			// => PUTFIELD MyMappedType.view
-			//
-			// instead of:
-			// => GETFIELD MyMappedType.view
-			// => ICONST_1
-			// => IADD
-			// => PUTFIELD MyMappedType.view
-			//
+			// HACK: Workaround for mapped.view++ operator
+        //
+        // Required because the compiler generates:
+        //   GETFIELD MappedObject.view    (supertype field)
+        //   ICONST_1
+        //   IADD
+        //   PUTFIELD MyMappedType.view    (subtype field)
+        //
+        // Instead of:
+        //   GETFIELD MyMappedType.view    (direct access)
+        //   ICONST_1
+        //   IADD
+        //   PUTFIELD MyMappedType.view
+        //
+        // This transformation normalizes the bytecode pattern.
 			className_to_subtype.put(MAPPED_OBJECT_JVM, new MappedSubtypeInfo(MAPPED_OBJECT_JVM, null, -1, -1, -1, false));
 		}
 
@@ -295,7 +296,8 @@ public class MappedObjectTransformer {
 
 			@Override
 			protected String getCommonSuperClass(String a, String b) {
-				// HACK: prevent user-code static-initialization-blocks to be executed
+				// HACK: Prevent user-code static-initialization-blocks from being executed
+				// This is a known limitation of the bytecode transformation approach
 				if ( is_currently_computing_frames && !a.startsWith("java/") || !b.startsWith("java/") )
 					return "java/lang/Object";
 

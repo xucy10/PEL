@@ -102,9 +102,6 @@ fun SettingsScreen(
                     backStackViewModel.settingsScreen.currentKey = newKey
                 },
                 openLicenseScreen = openLicenseScreen,
-                toHomePageEditor = {
-                    backStackViewModel.mainScreen.navigateTo(NormalNavKey.HomePageEditor)
-                },
                 eventViewModel = eventViewModel,
                 submitError = submitError,
                 modifier = Modifier.fillMaxHeight()
@@ -189,7 +186,6 @@ private fun NavigationUI(
     settingsScreenKey: TitledNavKey?,
     onCurrentKeyChange: (TitledNavKey?) -> Unit,
     openLicenseScreen: (raw: Int) -> Unit,
-    toHomePageEditor: () -> Unit,
     eventViewModel: EventViewModel,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
     modifier: Modifier = Modifier
@@ -223,14 +219,7 @@ private fun NavigationUI(
                     GamepadSettingsScreen(key, settingsScreenKey, mainScreenKey)
                 }
                 entry<NormalNavKey.Settings.Launcher> {
-                    LauncherSettingsScreen(
-                        key = key,
-                        settingsScreenKey = settingsScreenKey,
-                        mainScreenKey = mainScreenKey,
-                        eventViewModel = eventViewModel,
-                        toHomePageEditor = toHomePageEditor,
-                        submitError = submitError,
-                    )
+                    LauncherSettingsScreen(key, settingsScreenKey, mainScreenKey, submitError)
                 }
                 entry<NormalNavKey.Settings.JavaManager> {
                     JavaManageScreen(key, settingsScreenKey, mainScreenKey, submitError)

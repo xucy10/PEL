@@ -81,6 +81,7 @@ _Noreturn static void* abort_waiter_thread(void* extraArg) {
 
 _Noreturn static void abort_waiter_handler(int signal) {
     write(abort_waiter_data.pipe[1], &signal, sizeof(int));
+    // Block indefinitely - waiting for abort signal delivery
     while(1) {}
 }
 

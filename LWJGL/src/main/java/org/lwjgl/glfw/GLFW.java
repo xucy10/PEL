@@ -1015,7 +1015,8 @@ public class GLFW
     }
 
     public static long glfwGetTimerFrequency() {
-        // FIXME set correct value!!
+        // TODO: Implement properly - return actual system timer frequency
+        // Currently returns 60 as a placeholder value
         return 60;
     }
 

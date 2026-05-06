@@ -1,162 +1,93 @@
-//! SHA1 implementation in pure Rust
+//! SHA1 hash implementation in pure Rust for high performance
 //!
-//! Optimized for performance with minimal memory allocation.
-//! Uses inline functions and loop unrolling for maximum throughput.
+//! This module provides faster SHA1 computation compared to Java's
+//! MessageDigest by using optimized Rust implementation.
 
-/// Rotate left operation
+use libc::c_char;
+
+/// Buffer size for reading files
+const READ_BUFFER_SIZE: usize = 65536;
+
+/// SHA1 digest output (20 bytes)
+pub type Sha1Digest = [u8; 20];
+
 #[inline(always)]
 fn rol32(value: u32, bits: u32) -> u32 {
     (value << bits) | (value >> (32 - bits))
 }
 
-// SHA1 round constants
-const K0: u32 = 0x5A827999;
-const K1: u32 = 0x6ED9EBA1;
-const K2: u32 = 0x8F1BBCDC;
-const K3: u32 = 0xCA62C1D6;
-
-/// Single SHA1 round operation - fully inlined for optimization
-#[inline(always)]
-fn sha1_round(a: u32, b: u32, c: u32, d: u32, e: u32, w: u32, k: u32) -> (u32, u32, u32, u32, u32) {
-    let temp = rol32(a, 5)
-        .wrapping_add(e)
-        .wrapping_add(w)
-        .wrapping_add(k);
-    (
-        temp.wrapping_add((b & c) | ((!b) & d)),
-        a,
-        rol32(b, 30),
-        c,
-        d
-    )
-}
-
-/// Process a single 64-byte block
-#[inline(always)]
 fn sha1_block(state: &mut [u32; 5], block: &[u8; 64]) {
-    let mut w = [0u32; 80];
+    let mut w = [0u32; 16];
 
-    // Message schedule preparation - first 16 words from block
-    // Unrolled for better instruction-level parallelism
-    w[0] = u32::from_be_bytes([block[0], block[1], block[2], block[3]]);
-    w[1] = u32::from_be_bytes([block[4], block[5], block[6], block[7]]);
-    w[2] = u32::from_be_bytes([block[8], block[9], block[10], block[11]]);
-    w[3] = u32::from_be_bytes([block[12], block[13], block[14], block[15]]);
-    w[4] = u32::from_be_bytes([block[16], block[17], block[18], block[19]]);
-    w[5] = u32::from_be_bytes([block[20], block[21], block[22], block[23]]);
-    w[6] = u32::from_be_bytes([block[24], block[25], block[26], block[27]]);
-    w[7] = u32::from_be_bytes([block[28], block[29], block[30], block[31]]);
-    w[8] = u32::from_be_bytes([block[32], block[33], block[34], block[35]]);
-    w[9] = u32::from_be_bytes([block[36], block[37], block[38], block[39]]);
-    w[10] = u32::from_be_bytes([block[40], block[41], block[42], block[43]]);
-    w[11] = u32::from_be_bytes([block[44], block[45], block[46], block[47]]);
-    w[12] = u32::from_be_bytes([block[48], block[49], block[50], block[51]]);
-    w[13] = u32::from_be_bytes([block[52], block[53], block[54], block[55]]);
-    w[14] = u32::from_be_bytes([block[56], block[57], block[58], block[59]]);
-    w[15] = u32::from_be_bytes([block[60], block[61], block[62], block[63]]);
-
-    // Remaining words using recurrence
+    // Prepare message schedule
+    for i in 0..16 {
+        w[i] = u32::from_be_bytes([
+            block[i * 4],
+            block[i * 4 + 1],
+            block[i * 4 + 2],
+            block[i * 4 + 3],
+        ]);
+    }
     for i in 16..80 {
-        w[i] = rol32(w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16], 1);
+        w[i] = rol32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
     }
 
-    // Initialize working variables
     let mut a = state[0];
     let mut b = state[1];
     let mut c = state[2];
     let mut d = state[3];
     let mut e = state[4];
 
-    // 80 rounds with loop unrolling
-    // Rounds 0-19 (K0)
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[0], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[1], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[2], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[3], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[4], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[5], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[6], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[7], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[8], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[9], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[10], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[11], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[12], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[13], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[14], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[15], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[16], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[17], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[18], K0);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[19], K0);
+    // 80 rounds
+    for i in 0..20 {
+        let temp = rol32(a, 5)
+            .wrapping_add((b & c) | ((!b) & d))
+            .wrapping_add(e)
+            .wrapping_add(w[i])
+            .wrapping_add(0x5A827999);
+        e = d;
+        d = c;
+        c = rol32(b, 30);
+        b = a;
+        a = temp;
+    }
+    for i in 20..40 {
+        let temp = rol32(a, 5)
+            .wrapping_add(b ^ c ^ d)
+            .wrapping_add(e)
+            .wrapping_add(w[i])
+            .wrapping_add(0x6ED9EBA1);
+        e = d;
+        d = c;
+        c = rol32(b, 30);
+        b = a;
+        a = temp;
+    }
+    for i in 40..60 {
+        let temp = rol32(a, 5)
+            .wrapping_add((b & c) | (b & d) | (c & d))
+            .wrapping_add(e)
+            .wrapping_add(w[i])
+            .wrapping_add(0x8F1BBCDC);
+        e = d;
+        d = c;
+        c = rol32(b, 30);
+        b = a;
+        a = temp;
+    }
+    for i in 60..80 {
+        let temp = rol32(a, 5)
+            .wrapping_add(b ^ c ^ d)
+            .wrapping_add(e)
+            .wrapping_add(w[i])
+            .wrapping_add(0xCA62C1D6);
+        e = d;
+        d = c;
+        c = rol32(b, 30);
+        b = a;
+        a = temp;
+    }
 
-    // Rounds 20-39 (K1)
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[20], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[21], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[22], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[23], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[24], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[25], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[26], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[27], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[28], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[29], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[30], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[31], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[32], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[33], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[34], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[35], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[36], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[37], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[38], K1);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[39], K1);
-
-    // Rounds 40-59 (K2)
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[40], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[41], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[42], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[43], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[44], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[45], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[46], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[47], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[48], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[49], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[50], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[51], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[52], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[53], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[54], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[55], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[56], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[57], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[58], K2);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[59], K2);
-
-    // Rounds 60-79 (K3)
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[60], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[61], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[62], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[63], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[64], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[65], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[66], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[67], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[68], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[69], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[70], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[71], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[72], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[73], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[74], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[75], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[76], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[77], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[78], K3);
-    (a, b, c, d, e) = sha1_round(a, b, c, d, e, w[79], K3);
-
-    // Update state
     state[0] = state[0].wrapping_add(a);
     state[1] = state[1].wrapping_add(b);
     state[2] = state[2].wrapping_add(c);
@@ -164,157 +95,188 @@ fn sha1_block(state: &mut [u32; 5], block: &[u8; 64]) {
     state[4] = state[4].wrapping_add(e);
 }
 
-/// Pad data to 64-byte boundary and create final block with padding
-#[inline(always)]
-fn pad_data(data: &[u8]) -> ([u8; 64], usize) {
+/// Compute SHA1 hash of a byte array
+pub fn sha1(data: &[u8]) -> Sha1Digest {
+    let mut state = [0x67452301u32, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+    let mut count: u64 = 0;
     let len = data.len();
-    let mut padded = [0u8; 64];
+    let mut offset = 0;
 
-    // Copy available bytes
-    let copy_len = if len < 56 { len } else { 56 };
-    padded[..copy_len].copy_from_slice(&data[..copy_len]);
-
-    // Add 0x80 after data
-    if len < 56 {
-        padded[len] = 0x80;
+    // Process complete 64-byte blocks
+    while offset + 64 <= len {
+        let block: [u8; 64] = data[offset..offset + 64].try_into().unwrap();
+        sha1_block(&mut state, &block);
+        count += 64;
+        offset += 64;
     }
 
-    (padded, len)
-}
+    // Handle remaining bytes with padding
+    let remaining = len - offset;
+    if remaining > 0 {
+        count += remaining as u64;
+    }
 
-/// Convert state to 20-byte hash
-#[inline(always)]
-fn state_to_hash(state: &[u32; 5]) -> [u8; 20] {
+    // Padding
+    let bit_count = count * 8;
+    let final_offset = (count as usize) % 64;
+    let mut padded = [0u8; 64];
+
+    if remaining > 0 {
+        padded[..remaining].copy_from_slice(&data[offset..]);
+    }
+
+    if final_offset < 56 {
+        padded[final_offset] = 0x80;
+        padded[56] = ((bit_count >> 56) & 0xFF) as u8;
+        padded[57] = ((bit_count >> 48) & 0xFF) as u8;
+        padded[58] = ((bit_count >> 40) & 0xFF) as u8;
+        padded[59] = ((bit_count >> 32) & 0xFF) as u8;
+        padded[60] = ((bit_count >> 24) & 0xFF) as u8;
+        padded[61] = ((bit_count >> 16) & 0xFF) as u8;
+        padded[62] = ((bit_count >> 8) & 0xFF) as u8;
+        padded[63] = (bit_count & 0xFF) as u8;
+    } else {
+        // Need two blocks
+        padded[final_offset] = 0x80;
+        sha1_block(&mut state, &padded);
+        padded.fill(0);
+        padded[56] = ((bit_count >> 56) & 0xFF) as u8;
+        padded[57] = ((bit_count >> 48) & 0xFF) as u8;
+        padded[58] = ((bit_count >> 40) & 0xFF) as u8;
+        padded[59] = ((bit_count >> 32) & 0xFF) as u8;
+        padded[60] = ((bit_count >> 24) & 0xFF) as u8;
+        padded[61] = ((bit_count >> 16) & 0xFF) as u8;
+        padded[62] = ((bit_count >> 8) & 0xFF) as u8;
+        padded[63] = (bit_count & 0xFF) as u8;
+    }
+
+    sha1_block(&mut state, &padded);
+
+    // Output as 20 bytes
     let mut result = [0u8; 20];
-    for (i, &v) in state.iter().enumerate() {
-        result[i*4] = (v >> 24) as u8;
-        result[i*4+1] = (v >> 16) as u8;
-        result[i*4+2] = (v >> 8) as u8;
-        result[i*4+3] = v as u8;
+    for i in 0..5 {
+        result[i * 4] = (state[i] >> 24) as u8;
+        result[i * 4 + 1] = (state[i] >> 16) as u8;
+        result[i * 4 + 2] = (state[i] >> 8) as u8;
+        result[i * 4 + 3] = state[i] as u8;
     }
     result
 }
 
-/// Compute SHA1 hash of data
-pub fn sha1(data: &[u8]) -> [u8; 20] {
-    let mut state = [0x67452301u32, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
-    let len = data.len();
-
-    // Process full 64-byte blocks
-    let full_blocks = len / 64;
-    for i in 0..full_blocks {
-        let block: [u8; 64] = data[i*64..i*64+64].try_into().unwrap();
-        sha1_block(&mut state, &block);
-    }
-
-    // Handle remaining bytes
-    let remaining = len % 64;
-    if remaining > 0 {
-        let (mut padded, _) = pad_data(&data[full_blocks*64..]);
-        let offset = full_blocks * 64;
-        padded[..remaining].copy_from_slice(&data[offset..offset+remaining]);
-
-        // Set bit length
-        let bit_len = (len as u64).wrapping_mul(8);
-        padded[56] = (bit_len >> 56) as u8;
-        padded[57] = (bit_len >> 48) as u8;
-        padded[58] = (bit_len >> 40) as u8;
-        padded[59] = (bit_len >> 32) as u8;
-        padded[60] = (bit_len >> 24) as u8;
-        padded[61] = (bit_len >> 16) as u8;
-        padded[62] = (bit_len >> 8) as u8;
-        padded[63] = bit_len as u8;
-
-        sha1_block(&mut state, &padded);
-    } else if len > 0 {
-        // Exact multiple of 64 - add padding block
-        let mut padded = [0u8; 64];
-        padded[0] = 0x80;
-        let bit_len = (len as u64).wrapping_mul(8);
-        padded[56] = (bit_len >> 56) as u8;
-        padded[57] = (bit_len >> 48) as u8;
-        padded[58] = (bit_len >> 40) as u8;
-        padded[59] = (bit_len >> 32) as u8;
-        padded[60] = (bit_len >> 24) as u8;
-        padded[61] = (bit_len >> 16) as u8;
-        padded[62] = (bit_len >> 8) as u8;
-        padded[63] = bit_len as u8;
-        sha1_block(&mut state, &padded);
-    }
-
-    state_to_hash(&state)
-}
-
-/// Compute SHA1 and return as hex string
+/// Compute SHA1 hash of a byte array and return hex string
 pub fn sha1_hex(data: &[u8]) -> String {
-    let hash = sha1(data);
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        hash[0], hash[1], hash[2], hash[3], hash[4],
-        hash[5], hash[6], hash[7], hash[8], hash[9],
-        hash[10], hash[11], hash[12], hash[13], hash[14],
-        hash[15], hash[16], hash[17], hash[18], hash[19]
-    )
+    sha1(data)
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect()
 }
 
-/// Compute SHA1 hash of a file
-pub fn sha1_file_hex(path: *const libc::c_char) -> Option<String> {
+/// Compute SHA1 hash of a file and return hex string
+pub fn sha1_file_hex(path: *const c_char) -> Option<String> {
     use std::io::Read;
 
     unsafe {
-        let path_str = std::ffi::CStr::from_ptr(path);
+        let path_str = std::ffi::CStr::from_ptr(path as *const c_char);
         let file_path = path_str.to_str().ok()?;
+
         let file = std::fs::File::open(file_path).ok()?;
-        let mut reader = std::io::BufReader::with_capacity(65536, file);
+        let mut reader = std::io::BufReader::with_capacity(READ_BUFFER_SIZE, file);
+        let mut buffer = [0u8; READ_BUFFER_SIZE];
+
         let mut state = [0x67452301u32, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
-        let mut buf = [0u8; 65536];
-        let mut total_len = 0u64;
+        let mut count: u64 = 0;
+        let mut pending = [0u8; 64];
+        let mut pending_len = 0usize;
 
         loop {
-            match reader.read(&mut buf) {
+            match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(n) => {
-                    total_len += n as u64;
                     let mut offset = 0;
-                    while offset + 64 <= n {
-                        let block: [u8; 64] = buf[offset..offset+64].try_into().unwrap();
-                        sha1_block(&mut state, &block);
-                        offset += 64;
-                    }
-                    // Handle remaining bytes
-                    if offset < n {
-                        let remaining = n - offset;
-                        let mut padded = [0u8; 64];
-                        padded[..remaining].copy_from_slice(&buf[offset..n]);
-                        if remaining < 56 {
-                            padded[remaining] = 0x80;
+                    while offset < n {
+                        if pending_len == 64 {
+                            sha1_block(&mut state, &pending);
+                            count += 64;
+                            pending_len = 0;
                         }
-                        let bit_len = total_len * 8;
-                        padded[56] = (bit_len >> 56) as u8;
-                        padded[57] = (bit_len >> 48) as u8;
-                        padded[58] = (bit_len >> 40) as u8;
-                        padded[59] = (bit_len >> 32) as u8;
-                        padded[60] = (bit_len >> 24) as u8;
-                        padded[61] = (bit_len >> 16) as u8;
-                        padded[62] = (bit_len >> 8) as u8;
-                        padded[63] = bit_len as u8;
-                        sha1_block(&mut state, &padded);
+                        let to_copy = 64 - pending_len;
+                        let remaining = n - offset;
+                        let copy = if to_copy > remaining { remaining } else { to_copy };
+                        pending[pending_len..][..copy].copy_from_slice(&buffer[offset..][..copy]);
+                        pending_len += copy;
+                        offset += copy;
                     }
                 }
                 Err(_) => return None,
             }
         }
 
-        Some(format!(
-            "{:08x}{:08x}{:08x}{:08x}{:08x}",
-            state[0], state[1], state[2], state[3], state[4]
-        ))
+        // Padding
+        let bit_count = count * 8;
+        pending[pending_len] = 0x80;
+        pending[pending_len + 1..].fill(0);
+
+        if pending_len < 56 {
+            pending[56] = ((bit_count >> 56) & 0xFF) as u8;
+            pending[57] = ((bit_count >> 48) & 0xFF) as u8;
+            pending[58] = ((bit_count >> 40) & 0xFF) as u8;
+            pending[59] = ((bit_count >> 32) & 0xFF) as u8;
+            pending[60] = ((bit_count >> 24) & 0xFF) as u8;
+            pending[61] = ((bit_count >> 16) & 0xFF) as u8;
+            pending[62] = ((bit_count >> 8) & 0xFF) as u8;
+            pending[63] = (bit_count & 0xFF) as u8;
+            sha1_block(&mut state, &pending);
+        } else {
+            sha1_block(&mut state, &pending);
+            pending.fill(0);
+            pending[56] = ((bit_count >> 56) & 0xFF) as u8;
+            pending[57] = ((bit_count >> 48) & 0xFF) as u8;
+            pending[58] = ((bit_count >> 40) & 0xFF) as u8;
+            pending[59] = ((bit_count >> 32) & 0xFF) as u8;
+            pending[60] = ((bit_count >> 24) & 0xFF) as u8;
+            pending[61] = ((bit_count >> 16) & 0xFF) as u8;
+            pending[62] = ((bit_count >> 8) & 0xFF) as u8;
+            pending[63] = (bit_count & 0xFF) as u8;
+            sha1_block(&mut state, &pending);
+        }
+
+        Some(state.iter().map(|v| format!("{:08x}", v)).collect())
     }
 }
 
-/// Verify file SHA1 against expected hex
-pub fn sha1_verify_file(path: *const libc::c_char, expected_hex: &str) -> bool {
+/// Verify file SHA1 against expected hex string
+pub fn sha1_verify_file(path: *const c_char, expected_hex: &str) -> bool {
     sha1_file_hex(path)
         .map(|computed| computed.eq_ignore_ascii_case(expected_hex))
         .unwrap_or(false)
+}
+
+// Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sha1_empty_string() {
+        let hash = sha1_hex(b"");
+        assert_eq!(hash, "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    }
+
+    #[test]
+    fn test_sha1_hello_world() {
+        let hash = sha1_hex(b"hello world");
+        assert_eq!(hash, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
+    }
+
+    #[test]
+    fn test_sha1_abc() {
+        let hash = sha1_hex(b"abc");
+        assert_eq!(hash, "a9993e364706816aba3e25717850c26c9cd0d89d");
+    }
+
+    #[test]
+    fn test_sha1_abc_bytes() {
+        let digest = sha1(b"abc");
+        assert_eq!(digest.len(), 20);
+    }
 }

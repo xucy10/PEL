@@ -44,7 +44,6 @@ class PathManager {
         lateinit var DIR_CACHE_MODPACK_EXPORTER: File
         lateinit var DIR_CACHE_MOD_UPDATER: File
         lateinit var DIR_CACHE_APP_ICON: File
-        lateinit var DIR_CACHE_HOME_PAGE: File
         lateinit var DIR_LAUNCHER_LOGS: File
         lateinit var DIR_NATIVE_LOGS: File
         lateinit var DIR_IMAGE_CACHE: File
@@ -82,7 +81,6 @@ class PathManager {
             DIR_CACHE_MODPACK_EXPORTER = File(DIR_CACHE, "temp_modpack_exporter")
             DIR_CACHE_MOD_UPDATER = File(DIR_CACHE, "temp_mod_updater")
             DIR_CACHE_APP_ICON = File(DIR_CACHE, "app_icons")
-            DIR_CACHE_HOME_PAGE = File(DIR_CACHE, "remote_homepage")
             DIR_LAUNCHER_LOGS = File(DIR_FILES_EXTERNAL, "logs")
             DIR_NATIVE_LOGS = File(DIR_LAUNCHER_LOGS, "native")
             DIR_IMAGE_CACHE = File(DIR_CACHE, "images")
@@ -114,7 +112,6 @@ class PathManager {
             DIR_CACHE_MODPACK_EXPORTER.mkdirs()
             DIR_CACHE_MOD_UPDATER.mkdirs()
             DIR_CACHE_APP_ICON.mkdirs()
-            DIR_CACHE_HOME_PAGE.mkdirs()
             DIR_LAUNCHER_LOGS.mkdirs()
             DIR_NATIVE_LOGS.mkdirs()
             DIR_IMAGE_CACHE.mkdirs()

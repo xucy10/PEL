@@ -6,7 +6,6 @@
 #![allow(dead_code)]
 
 pub mod bigcore;
-pub mod awt_bridge;
 pub mod driver_helper;
 pub mod environ;
 pub mod exit_hook;
@@ -23,17 +22,15 @@ pub mod utils;
 pub mod xawt_fake;
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JString};
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jstring};
-use std::ffi::CString;
-use std::ptr;
+use jni::objects::JClass;
+use jni::sys::{jint, jlong};
+use std::ffi::c_char;
 
 // Re-export JNI entry points
 pub use environ::Java_com_movtery_zalithlauncher_bridge_ZLBridge_initEnviron;
 pub use exit_hook::Java_com_movtery_zalithlauncher_bridge_ZLBridge_initializeGameExitHook;
 pub use java_exec_hooks::Java_com_movtery_zalithlauncher_bridge_ZLBridge_hookExec;
 pub use lwjgl_dlopen_hook::Java_com_movtery_zalithlauncher_bridge_ZLBridge_installLwjglDlopenHook;
-pub use jre_launcher::Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustLaunchJVM;
 
 /// Initialize the Rust library
 #[no_mangle]
@@ -47,11 +44,10 @@ pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustInit(
 /// Get Rust library version
 #[no_mangle]
 pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustGetVersion(
-    env: JNIEnv,
+    _env: JNIEnv,
     _class: JClass,
-) -> jstring {
-    let version = CString::new("1.0.0-rust").unwrap();
-    env.new_string(version.to_str().unwrap()).unwrap().into_raw()
+) -> *const i8 {
+    "1.0.0-rust\0".as_ptr() as *const i8
 }
 
 /// Test function to verify Rust JNI is working
@@ -114,355 +110,116 @@ pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustGetSimdOpt
     simd_utils::get_simd_optimal_size() as jint
 }
 
-/// Direct file copy - accepts Java String and returns jlong (bytes copied or -1)
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileCopyDirect(
-    mut env: JNIEnv,
-    _class: JClass,
-    src_path: JString,
-    dst_path: JString,
-) -> jlong {
-    let src_str: String = match env.get_string(&src_path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-    let dst_str: String = match env.get_string(&dst_path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let src_cstr = match CString::new(src_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-    let dst_cstr = match CString::new(dst_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe {
-        file_io::rust_file_copy_direct(src_cstr.as_ptr(), dst_cstr.as_ptr())
-    }
-}
-
 /// File copy with progress callback
 #[no_mangle]
 pub unsafe extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileCopyWithProgress(
-    mut env: JNIEnv,
+    _env: JNIEnv,
     _class: JClass,
-    src_path: JString,
-    dst_path: JString,
+    src_path: jlong,
+    dst_path: jlong,
     buffer_size: jint,
     _progress_callback: jlong,
 ) -> jlong {
-    let src_str: String = match env.get_string(&src_path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-    let dst_str: String = match env.get_string(&dst_path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let src_cstr = match CString::new(src_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-    let dst_cstr = match CString::new(dst_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
     file_io::rust_file_copy_with_progress(
-        src_cstr.as_ptr(),
-        dst_cstr.as_ptr(),
+        src_path as *const c_char,
+        dst_path as *const c_char,
         buffer_size as usize,
         None,
     )
 }
 
-/// Get file size - accepts Java String
+/// Direct file copy
 #[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileSize(
-    mut env: JNIEnv,
+pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileCopyDirect(
+    _env: JNIEnv,
     _class: JClass,
-    path: JString,
+    src_path: jlong,
+    dst_path: jlong,
 ) -> jlong {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe { file_io::rust_file_size(path_cstr.as_ptr()) }
-}
-
-/// File exists check - accepts Java String
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileExists(
-    mut env: JNIEnv,
-    _class: JClass,
-    path: JString,
-) -> jint {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return 0,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-
-    unsafe { file_io::rust_file_exists(path_cstr.as_ptr()) }
-}
-
-/// Compute SHA1 hash of a file - accepts Java String
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSha1File(
-    mut env: JNIEnv,
-    _class: JClass,
-    path: JString,
-) -> jstring {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let hex_opt = sha1::sha1_file_hex(path_cstr.as_ptr());
-    match hex_opt {
-        Some(hex) => {
-            let result = env.new_string(hex.as_str()).unwrap();
-            result.into_raw()
-        }
-        None => ptr::null_mut(),
+    unsafe {
+        file_io::rust_file_copy_direct(src_path as *const c_char, dst_path as *const c_char)
     }
 }
 
-/// Verify file SHA1 against expected hex string - accepts Java Strings
+/// Get file size
+#[no_mangle]
+pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileSize(
+    _env: JNIEnv,
+    _class: JClass,
+    path: jlong,
+) -> jlong {
+    unsafe { file_io::rust_file_size(path as *const c_char) }
+}
+
+/// File exists check
+#[no_mangle]
+pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustFileExists(
+    _env: JNIEnv,
+    _class: JClass,
+    path: jlong,
+) -> jint {
+    unsafe { file_io::rust_file_exists(path as *const c_char) }
+}
+
+/// Compute SHA1 hash of a file
+/// Returns pointer to hex string (caller must free), or null on error
+#[no_mangle]
+pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSha1File(
+    _env: JNIEnv,
+    _class: JClass,
+    path: jlong,
+) -> *mut c_char {
+    let path_ptr = path as *const c_char;
+    match sha1::sha1_file_hex(path_ptr) {
+        Some(hex) => Box::into_raw(hex.into_boxed_str()) as *mut c_char,
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Verify file SHA1 against expected hex string
+/// Returns 1 if match, 0 if no match, -1 on error
 #[no_mangle]
 pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSha1Verify(
-    mut env: JNIEnv,
+    _env: JNIEnv,
     _class: JClass,
-    path: JString,
-    expected_hex: JString,
+    path: jlong,
+    expected_hex: jlong,
 ) -> jint {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-    let hex_str: String = match env.get_string(&expected_hex) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
+    let path_ptr = path as *const c_char;
+    let hex_ptr = expected_hex as *const c_char;
+
+    if path_ptr.is_null() || hex_ptr.is_null() {
+        return -1;
+    }
+
+    let expected = unsafe {
+        let hex_cstr = std::ffi::CStr::from_ptr(hex_ptr as *const c_char);
+        match hex_cstr.to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
     };
 
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    if sha1::sha1_verify_file(path_cstr.as_ptr(), hex_str.as_str()) {
+    if sha1::sha1_verify_file(path_ptr, expected) {
         1
     } else {
         0
     }
 }
 
-/// Compute SHA1 hash of bytes - accepts Java byte array
+/// Compute SHA1 hash of bytes
 #[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSha1Bytes(
-    env: JNIEnv,
+pub unsafe extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSha1Bytes(
+    _env: JNIEnv,
     _class: JClass,
-    data: jbyteArray,
-) -> jstring {
-    let java_array = unsafe { jni::objects::JByteArray::from_raw(data) };
-    let java_bytes: Vec<u8> = match env.convert_byte_array(&java_array) {
-        Ok(b) => b,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let hex = sha1::sha1_hex(&java_bytes);
-    let result = env.new_string(hex.as_str()).unwrap();
-    result.into_raw()
-}
-
-/// Create directory recursively - accepts Java String
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustCreateDirs(
-    mut env: JNIEnv,
-    _class: JClass,
-    path: JString,
-) -> jint {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe { file_io::rust_create_dirs(path_cstr.as_ptr()) }
-}
-
-/// Delete file - accepts Java String
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustDeleteFile(
-    mut env: JNIEnv,
-    _class: JClass,
-    path: JString,
-) -> jint {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe { file_io::rust_delete_file(path_cstr.as_ptr()) }
-}
-
-/// dlopen - Load a dynamic library using Rust libc
-/// Returns true (1) on success, false (0) on failure
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustDlopen(
-    mut env: JNIEnv,
-    _class: JClass,
-    name: JString,
-) -> jboolean {
-    let name_str: String = match env.get_string(&name) {
-        Ok(s) => s.into(),
-        Err(_) => return 0,
-    };
-
-    let name_cstr = match CString::new(name_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-
-    unsafe {
-        let handle = libc::dlopen(name_cstr.as_ptr(), libc::RTLD_GLOBAL | libc::RTLD_LAZY);
-        if handle.is_null() {
-            let error = libc::dlerror();
-            if !error.is_null() {
-                let _error_str = std::ffi::CStr::from_ptr(error).to_string_lossy();
-                eprintln!("Rust dlopen failed");
-            }
-            0
-        } else {
-            1
-        }
+    data: jlong,
+    len: jint,
+) -> *mut c_char {
+    if data == 0 || len <= 0 {
+        return std::ptr::null_mut();
     }
-}
 
-/// chdir - Change current working directory using Rust libc
-/// Returns 0 on success, -1 on failure
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustChdir(
-    mut env: JNIEnv,
-    _class: JClass,
-    path: JString,
-) -> jint {
-    let path_str: String = match env.get_string(&path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe {
-        libc::chdir(path_cstr.as_ptr())
-    }
-}
-
-/// Get current working directory
-/// Returns the current working directory as a Java String
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustGetcwd(
-    env: JNIEnv,
-    _class: JClass,
-) -> jstring {
-    let mut buf = [0u8; libc::PATH_MAX as usize];
-    unsafe {
-        if libc::getcwd(buf.as_mut_ptr() as *mut libc::c_char, libc::PATH_MAX as libc::size_t).is_null() {
-            return ptr::null_mut();
-        }
-    }
-    let cwd = std::ffi::CStr::from_bytes_until_nul(&buf).unwrap().to_string_lossy();
-    env.new_string(cwd.as_ref()).unwrap().into_raw()
-}
-
-/// Set LD_LIBRARY_PATH environment variable
-/// This is Android-specific and calls android_update_LD_LIBRARY_PATH
-#[no_mangle]
-pub extern "C" fn Java_com_movtery_zalithlauncher_bridge_ZLBridge_rustSetLdLibraryPath(
-    mut env: JNIEnv,
-    _class: JClass,
-    ld_library_path: JString,
-) -> jint {
-    let path_str: String = match env.get_string(&ld_library_path) {
-        Ok(s) => s.into(),
-        Err(_) => return -1,
-    };
-
-    let path_cstr = match CString::new(path_str.as_str()) {
-        Ok(c) => c,
-        Err(_) => return -1,
-    };
-
-    unsafe {
-        let libdl_name = CString::new("libdl.so").unwrap();
-        let libdl_handle = libc::dlopen(libdl_name.as_ptr(), libc::RTLD_LAZY);
-        if libdl_handle.is_null() {
-            eprintln!("Rust: Failed to open libdl.so");
-            return -1;
-        }
-
-        let func_names = [
-            b"android_update_LD_LIBRARY_PATH\0".as_ptr() as *const libc::c_char,
-            b"__loader_android_update_LD_LIBRARY_PATH\0".as_ptr() as *const libc::c_char,
-        ];
-
-        let mut func: *mut libc::c_void = ptr::null_mut();
-        for name in func_names.iter() {
-            func = libc::dlsym(libdl_handle, *name);
-            if !func.is_null() {
-                break;
-            }
-        }
-
-        if func.is_null() {
-            eprintln!("Rust: Failed to find android_update_LD_LIBRARY_PATH");
-            libc::dlclose(libdl_handle);
-            return -1;
-        }
-
-        // Set LD_LIBRARY_PATH env var first
-        let env_name = CString::new("LD_LIBRARY_PATH").unwrap();
-        libc::setenv(env_name.as_ptr(), path_cstr.as_ptr(), 1);
-
-        // Call the function
-        type UpdateFunc = extern "C" fn(*const libc::c_char);
-        let update_func: UpdateFunc = std::mem::transmute(func);
-        update_func(path_cstr.as_ptr());
-
-        libc::dlclose(libdl_handle);
-        0
-    }
+    let slice = std::slice::from_raw_parts(data as *const u8, len as usize);
+    let hex = sha1::sha1_hex(slice);
+    Box::into_raw(hex.into_boxed_str()) as *mut c_char
 }

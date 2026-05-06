@@ -26,9 +26,8 @@ osm_render_window_t* osm_get_current() {
 }
 
 osm_render_window_t* osm_init_context(osm_render_window_t* share) {
-    osm_render_window_t* render_window = malloc(sizeof(osm_render_window_t));
+    osm_render_window_t* render_window = calloc(1, sizeof(osm_render_window_t));
     if(render_window == NULL) return NULL;
-    memset(render_window, 0, sizeof(osm_render_window_t));
     OSMesaContext osmesa_share = NULL;
     if(share != NULL) osmesa_share = share->context;
     OSMesaContext context = OSMesaCreateContext_p(GL_RGBA, osmesa_share);

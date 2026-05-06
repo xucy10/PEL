@@ -143,7 +143,7 @@ _Noreturn void nominal_exit(int code, bool is_signal) {
     jmethodID exitMethod = (*env)->GetStaticMethodID(env, systemClass, "exit", "(I)V");
     (*env)->CallStaticVoidMethod(env, systemClass, exitMethod, 0);
     // System.exit() should not ever return, but the compiler doesn't know about that
-    // so put a while loop here
+    // so put a while loop here to prevent undefined behavior after the call
     while(1) {}
 }
 
