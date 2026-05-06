@@ -6,6 +6,7 @@
 #![allow(dead_code)]
 
 pub mod bigcore;
+pub mod awt_bridge;
 pub mod driver_helper;
 pub mod environ;
 pub mod exit_hook;
